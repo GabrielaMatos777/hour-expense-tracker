@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description" content="Registo mensal de horas de trabalho e despesas dedutíveis. Exportação rápida para WhatsApp.">
+  <meta name="theme-color" content="#0b0f19">
+  <title>Registo de Horas & Gastos</title>
+  <!-- Google Fonts (Inter) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Layout Wrapper to center the mobile view on Desktop -->
+  <div class="app-container">
+    <main class="phone-frame">
+      
+      <!-- Top Decorative Status Bar Area -->
+      <div class="phone-header-glow"></div>
+
+      <!-- App Header & Navigation -->
+      <header class="app-header">
+        <div class="brand">
+          <span class="logo-dot"></span>
+          <h1>HourFlow</h1>
+        </div>
+        
+        <!-- Month / Year Selector -->
+        <div class="month-selector">
+          <button id="prev-month-btn" class="nav-arrow-btn" aria-label="Mês anterior">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          
+          <div class="month-display-container">
+            <span id="current-month-display">Junho 2026</span>
+            <select id="month-select" class="hidden-select"></select>
+          </div>
+
+          <button id="next-month-btn" class="nav-arrow-btn" aria-label="Próximo mês">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- Dashboard Financial Card -->
+      <section class="dashboard-section">
+        <div class="dashboard-card glow-card">
+          <div class="net-receive-label">Líquido a Receber</div>
+          <div class="net-receive-value" id="net-value">0,00 €</div>
+          
+          <div class="summary-divider"></div>
+          
+          <div class="summary-grid">
+            <div class="summary-item">
+              <span class="summary-title">Horas</span>
+              <span class="summary-val" id="total-hours">0 h</span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-title">Bruto</span>
+              <span class="summary-val" id="gross-value">0,00 €</span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-title">Despesas</span>
+              <span class="summary-val expense-color" id="total-expenses">0,00 €</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Log Entry Form Card -->
+      <section class="form-section">
+        <div class="entry-card">
+          <!-- Toggle Tabs (Hours / Expenses) -->
+          <div class="tab-container">
+            <div class="tab-slider"></div>
+            <button type="button" class="tab-btn active" data-tab="hours">Horas</button>
+            <button type="button" class="tab-btn" data-tab="expenses">Gasto</button>
+          </div>
+
+          <form id="entry-form" autocomplete="off">
+            <!-- Common Date Picker -->
+            <div class="input-group">
+              <label for="entry-date">Data</label>
+              <div class="input-wrapper">
+                <input type="date" id="entry-date" required>
+                <span class="input-icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+                </span>
+              </div>
+            </div>
+
+            <!-- Hours Input Container -->
+            <div id="hours-inputs" class="form-fields-container active">
+              <div class="input-group">
+                <label for="hours-count">Quantidade de Horas</label>
+                <div class="input-wrapper">
+                  <input type="number" id="hours-count" placeholder="Ex: 8" min="0.1" step="any" inputmode="decimal">
+                  <span class="input-unit">h</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Expense Input Container -->
+            <div id="expense-inputs" class="form-fields-container">
+              <div class="input-group">
+                <label for="expense-amount">Valor do Gasto</label>
+                <div class="input-wrapper">
+                  <input type="number" id="expense-amount" placeholder="Ex: 12.50" min="0.01" step="any" inputmode="decimal">
+                  <span class="input-unit">€</span>
+                </div>
+              </div>
+              
+              <div class="input-group">
+                <label for="expense-desc">Descrição</label>
+                <div class="input-wrapper">
+                  <input type="text" id="expense-desc" placeholder="Ex: Almoço, Portagens, Ferramentas">
+                  <span class="input-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" id="submit-btn" class="submit-btn">
+              <span>Registar Horas</span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <!-- Monthly History List -->
+      <section class="history-section">
+        <h2 class="section-title">Histórico Mensal</h2>
+        
+        <div id="history-container" class="history-container">
+          <!-- Dynamically populated or empty state -->
+          <div class="empty-state" id="empty-state">
+            <div class="empty-icon-wrapper">
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" /><path d="M12 8v8"/><path d="m9 11 3-3 3 3"/></svg>
+            </div>
+            <p>Nenhum registo este mês</p>
+            <span class="empty-sub">Insira horas ou gastos acima.</span>
+          </div>
+
+          <ul id="history-list" class="history-list">
+            <!-- Dynamic entries loaded here -->
+          </ul>
+        </div>
+      </section>
+
+      <!-- WhatsApp Export Floating Bar -->
+      <footer class="app-footer">
+        <button id="whatsapp-btn" class="whatsapp-btn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+          <span>Gerar Relatório WhatsApp</span>
+        </button>
+      </footer>
+
+    </main>
+  </div>
+
+  <!-- JavaScript -->
+  <script src="app.js"></script>
+</body>
+</html>
