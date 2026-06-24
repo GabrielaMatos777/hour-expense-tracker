@@ -68,6 +68,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const whatsappPreviewText = document.getElementById('whatsapp-preview-text');
   const closeModalBtn = document.getElementById('close-modal-btn');
   const confirmWhatsappBtn = document.getElementById('confirm-whatsapp-btn');
+  const emailBtn = document.getElementById('email-btn');
+  const downloadBtn = document.getElementById('download-btn');
+  const shareBtn = document.getElementById('share-btn');
 
   // ==========================================================================
   // INITIALIZATION
@@ -618,11 +621,55 @@ document.addEventListener('DOMContentLoaded', () => {
     whatsappPreviewText.value = text;
     whatsappModal.classList.remove('hidden');
     
+    // WhatsApp
     confirmWhatsappBtn.onclick = () => {
       const finalMessage = whatsappPreviewText.value;
       const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(finalMessage)}`;
       window.open(whatsappUrl, '_blank');
       whatsappModal.classList.add('hidden');
+    };
+
+    // Email
+    emailBtn.onclick = () => {
+      const subject = encodeURIComponent(`Extrato ${MONTH_NAMES[currentMonth]} ${currentYear}`);
+      const body = encodeURIComponent(whatsappPreviewText.value);
+      window.open(`mailto:?subject=${subject}&body=${body}`, '_self');
+    };
+
+    // Download .txt
+    downloadBtn.onclick = () => {
+      const content = whatsappPreviewText.value;
+      const filename = `extrato_${MONTH_NAMES[currentMonth].toLowerCase()}_${currentYear}.txt`;
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
+    // Partilhar (menu nativo do Android/iOS)
+    shareBtn.onclick = async () => {
+      const content = whatsappPreviewText.value;
+      const filename = `extrato_${MONTH_NAMES[currentMonth].toLowerCase()}_${currentYear}.txt`;
+      if (navigator.share) {
+        try {
+          // Tenta partilhar como ficheiro
+          const file = new File([content], filename, { type: 'text/plain' });
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file], title: `Extrato ${MONTH_NAMES[currentMonth]} ${currentYear}` });
+          } else {
+            // Fallback: partilha só o texto
+            await navigator.share({ title: `Extrato ${MONTH_NAMES[currentMonth]} ${currentYear}`, text: content });
+          }
+        } catch (err) {
+          if (err.name !== 'AbortError') console.error('Erro ao partilhar:', err);
+        }
+      } else {
+        // Fallback para browsers sem suporte: copia para clipboard
+        navigator.clipboard.writeText(content).then(() => alert('Texto copiado! Cola onde quiseres.'));
+      }
     };
   }
 

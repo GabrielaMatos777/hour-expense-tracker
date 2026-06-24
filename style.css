@@ -841,3 +841,49 @@ html, body {
 .secondary-btn:active {
   transform: scale(0.98);
 }
+
+/* Modal Actions Grid */
+.modal-actions-row {
+  display: flex;
+  gap: 10px;
+}
+
+.action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 13px 10px;
+  border-radius: 14px;
+  border: none;
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.action-btn--whatsapp {
+  background: #25d366;
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(37, 211, 102, 0.25);
+}
+.action-btn--whatsapp:hover { background: #20ba5a; }
+.action-btn--whatsapp:active { transform: scale(0.97); }
+
+.action-btn--email {
+  background: hsl(250, 70%, 55%);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(99, 102, 241, 0.25);
+}
+.action-btn--email:hover { background: hsl(250, 70%, 65%); }
+.action-btn--email:active { transform: scale(0.97); }
+
+.action-btn--secondary {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+}
+.action-btn--secondary:hover { background: rgba(255, 255, 255, 0.10); }
+.action-btn--secondary:active { transform: scale(0.97); }
