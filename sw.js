@@ -1,9 +1,9 @@
-const CACHE_NAME = 'hourflow-v2';
+const CACHE_NAME = 'hourflow-v3';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
-  '/style.css?v=2',
-  '/app.js?v=2',
+  '/style.css?v=3',
+  '/app.js?v=3',
   '/manifest.json',
   '/icon.svg'
 ];
