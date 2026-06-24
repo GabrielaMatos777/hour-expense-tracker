@@ -576,7 +576,7 @@ document.addEventListener('DOMContentLoaded', () => {
       text += `Saldo anterior   ${formatCurrency(previousBalance)}\n\n`;
     }
     
-    // ── Movimentos: data   valor   descritivo ──
+    // ── Movimentos: bloco por registo ──
     if (chronologicalEntries.length > 0) {
       chronologicalEntries.forEach(entry => {
         const dateShort = formatDateShort(entry.date);
@@ -584,23 +584,27 @@ document.addEventListener('DOMContentLoaded', () => {
         if (entry.type === 'hours') {
           const value = Number(entry.hours) * HOURLY_RATE;
           const hoursLabel = formatHours(entry.hours).replace(' ', '');
-          text += `${dateShort}   +${formatCurrency(value)}   Trabalho (${hoursLabel})\n`;
+          text += `${dateShort}    +${formatCurrency(value)}\n`;
+          text += `Trabalho (${hoursLabel})\n\n`;
           
         } else if (entry.type === 'expenses') {
           const desc = entry.description || 'Diversos';
           if (entry.expenseNature === 'credit') {
-            text += `${dateShort}   +${formatCurrency(entry.amount)}   ${desc}\n`;
+            text += `${dateShort}    +${formatCurrency(entry.amount)}\n`;
+            text += `${desc}\n\n`;
           } else {
-            text += `${dateShort}   -${formatCurrency(entry.amount)}   ${desc}\n`;
+            text += `${dateShort}    -${formatCurrency(entry.amount)}\n`;
+            text += `${desc}\n\n`;
           }
           
         } else if (entry.type === 'payments') {
           const desc = entry.description || 'Recebido';
-          text += `${dateShort}   -${formatCurrency(entry.amount)}   Pagamento (${desc})\n`;
+          text += `${dateShort}    -${formatCurrency(entry.amount)}\n`;
+          text += `Pagamento (${desc})\n\n`;
         }
       });
     } else {
-      text += `Sem movimentos registados este mês\n`;
+      text += `Sem movimentos registados este mês\n\n`;
     }
     
     // ── Rodapé ──
