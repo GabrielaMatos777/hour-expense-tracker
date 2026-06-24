@@ -44,21 +44,22 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-body {
+html, body {
   font-family: var(--font-sans);
   background-color: var(--bg-main);
   color: var(--text-primary);
   line-height: 1.5;
-  height: 100dvh;
-  overflow: hidden;
+  /* Allow natural scroll - never lock the page */
+  height: 100%;
+  overflow-x: hidden;
 }
 
 /* App Container - Centering Frame on Desktop */
 .app-container {
   display: flex;
   justify-content: center;
-  align-items: center;
-  min-height: 100vh;
+  align-items: flex-start;
+  min-height: 100dvh;
   background: radial-gradient(circle at top, hsl(222, 45%, 15%) 0%, var(--bg-main) 100%);
   padding: 16px;
 }
@@ -68,12 +69,15 @@ body {
   position: relative;
   width: 100%;
   max-width: 440px;
-  height: 840px;
+  /* No fixed height — let content define the size on desktop */
+  min-height: 840px;
   background-color: var(--bg-phone);
   border-radius: 36px;
   border: 1.5px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.7);
-  overflow: hidden;
+  /* CRITICAL: never clip content, allow vertical scroll */
+  overflow-x: hidden;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
 }
@@ -96,12 +100,16 @@ body {
 @media (max-width: 480px) {
   .app-container {
     padding: 0;
+    align-items: stretch;
   }
   .phone-frame {
-    height: 100dvh;
+    /* On mobile: fill the full dynamic viewport, scroll freely */
+    min-height: 100dvh;
+    height: auto;
     max-height: none;
     border-radius: 0;
     border: none;
+    box-shadow: none;
   }
 }
 
@@ -475,10 +483,10 @@ body {
    ========================================================================= */
 .history-section {
   padding: 12px 20px;
-  flex: 1;
+  /* No flex:1 / min-height:0 needed — page scrolls naturally now */
   display: flex;
   flex-direction: column;
-  min-height: 0; /* Important for flex child scrolling */
+  padding-bottom: 120px; /* Space so footer button never covers last item */
 }
 
 .section-title {
@@ -491,12 +499,9 @@ body {
 }
 
 .history-container {
-  flex: 1;
-  overflow-y: auto;
-  min-height: 0;
+  /* No overflow:auto — the phone-frame itself scrolls */
   padding-right: 2px;
-  padding-bottom: 100px; /* Margem de segurança para scroll mobile */
-  /* Thin custom scrollbar styling */
+  padding-bottom: 8px;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
 }
@@ -688,10 +693,14 @@ body {
    APP FOOTER (WHATSAPP BUTTON BAR)
    ========================================================================== */
 .app-footer {
-  padding: 16px 20px 24px 20px;
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px 20px 28px 20px;
   border-top: 1px solid rgba(255, 255, 255, 0.04);
-  background: linear-gradient(180deg, transparent, rgba(11, 15, 25, 0.95));
-  z-index: 1;
+  background: linear-gradient(180deg, transparent, rgba(11, 15, 25, 0.97) 20%);
+  z-index: 10;
 }
 
 .whatsapp-btn {
