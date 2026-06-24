@@ -49,7 +49,7 @@ body {
   background-color: var(--bg-main);
   color: var(--text-primary);
   line-height: 1.5;
-  height: 100vh;
+  height: 100dvh;
   overflow: hidden;
 }
 
@@ -98,7 +98,7 @@ body {
     padding: 0;
   }
   .phone-frame {
-    height: 100vh;
+    height: 100dvh;
     max-height: none;
     border-radius: 0;
     border: none;
@@ -495,6 +495,7 @@ body {
   overflow-y: auto;
   min-height: 0;
   padding-right: 2px;
+  padding-bottom: 100px; /* Margem de segurança para scroll mobile */
   /* Thin custom scrollbar styling */
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
