@@ -40,6 +40,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const totalHoursEl = document.getElementById('total-hours');
   const grossValueEl = document.getElementById('gross-value');
   const totalExpensesEl = document.getElementById('total-expenses');
+  const totalCarriedEl = document.getElementById('total-carried');
+  const totalPaidEl = document.getElementById('total-paid');
   
   const tabContainer = document.querySelector('.tab-container');
   const tabButtons = document.querySelectorAll('.tab-btn');
@@ -53,9 +55,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const expenseAmountInput = document.getElementById('expense-amount');
   const expenseDescInput = document.getElementById('expense-desc');
   
+  const paymentInputs = document.getElementById('payment-inputs');
+  const paymentAmountInput = document.getElementById('payment-amount');
+  const paymentDescInput = document.getElementById('payment-desc');
+  
   const historyList = document.getElementById('history-list');
   const emptyState = document.getElementById('empty-state');
   const whatsappBtn = document.getElementById('whatsapp-btn');
+  
+  // Modal Elements
+  const whatsappModal = document.getElementById('whatsapp-modal');
+  const whatsappPreviewText = document.getElementById('whatsapp-preview-text');
+  const closeModalBtn = document.getElementById('close-modal-btn');
+  const confirmWhatsappBtn = document.getElementById('confirm-whatsapp-btn');
 
   // ==========================================================================
   // INITIALIZATION
@@ -181,25 +193,59 @@ document.addEventListener('DOMContentLoaded', () => {
   function render() {
     const currentMonthEntries = getFilteredEntries();
     
-    // 1. Calculate Totals
+    // 1. Calculate Carry-over from all previous months
+    const startOfCurrentMonth = new Date(currentYear, currentMonth, 1);
+    const previousEntries = entries.filter(entry => {
+      const entryDate = new Date(entry.date);
+      if (isNaN(entryDate.getTime())) return false;
+      // Compare ignoring time components, just check if it's strictly before current month
+      return entryDate.getFullYear() < currentYear || (entryDate.getFullYear() === currentYear && entryDate.getMonth() < currentMonth);
+    });
+    
+    let prevHours = 0;
+    let prevExpenses = 0;
+    let prevPayments = 0;
+    
+    previousEntries.forEach(entry => {
+      if (entry.type === 'hours') prevHours += Number(entry.hours) || 0;
+      else if (entry.type === 'expenses') {
+        if (entry.expenseNature === 'credit') prevExpenses -= Number(entry.amount) || 0;
+        else prevExpenses += Number(entry.amount) || 0;
+      }
+      else if (entry.type === 'payments') prevPayments += Number(entry.amount) || 0;
+    });
+    
+    const prevGross = prevHours * HOURLY_RATE;
+    const previousBalance = prevGross - prevExpenses - prevPayments;
+    
+    // 2. Calculate Current Month Totals
     let totalHours = 0;
     let totalExpenses = 0;
+    let totalPayments = 0;
     
     currentMonthEntries.forEach(entry => {
       if (entry.type === 'hours') {
         totalHours += Number(entry.hours) || 0;
       } else if (entry.type === 'expenses') {
-        totalExpenses += Number(entry.amount) || 0;
+        if (entry.expenseNature === 'credit') {
+          totalExpenses -= Number(entry.amount) || 0;
+        } else {
+          totalExpenses += Number(entry.amount) || 0;
+        }
+      } else if (entry.type === 'payments') {
+        totalPayments += Number(entry.amount) || 0;
       }
     });
     
     const grossEarnings = totalHours * HOURLY_RATE;
-    const netAmount = grossEarnings - totalExpenses;
+    const netAmount = previousBalance + grossEarnings - totalExpenses - totalPayments;
     
-    // 2. Render Cards
+    // 3. Render Cards
     totalHoursEl.textContent = formatHours(totalHours);
     grossValueEl.textContent = formatCurrency(grossEarnings);
     totalExpensesEl.textContent = formatCurrency(totalExpenses);
+    totalCarriedEl.textContent = formatCurrency(previousBalance);
+    totalPaidEl.textContent = formatCurrency(totalPayments);
     
     netValueEl.textContent = formatCurrency(netAmount);
     // Apply styling if negative net amount (rare, but possible)
@@ -240,10 +286,19 @@ document.addEventListener('DOMContentLoaded', () => {
           desc = `Horas Trabalhadas`;
           badgeClass = 'badge-hours';
           badgeText = `+${formatHours(entry.hours)}`;
-        } else {
-          desc = entry.description || 'Gasto';
-          badgeClass = 'badge-expense';
-          badgeText = `-${formatCurrency(entry.amount)}`;
+        } else if (entry.type === 'expenses') {
+          desc = entry.description || 'Diversos';
+          if (entry.expenseNature === 'credit') {
+            badgeClass = 'badge-hours'; // green color like hours
+            badgeText = `+${formatCurrency(entry.amount)}`;
+          } else {
+            badgeClass = 'badge-expense';
+            badgeText = `-${formatCurrency(entry.amount)}`;
+          }
+        } else if (entry.type === 'payments') {
+          desc = entry.description || 'Pagamento Recebido';
+          badgeClass = 'badge-payment';
+          badgeText = `+${formatCurrency(entry.amount)}`;
         }
         
         li.innerHTML = `
@@ -312,6 +367,11 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // WhatsApp Report Button
     whatsappBtn.addEventListener('click', handleWhatsAppExport);
+    
+    // Modal Close
+    closeModalBtn.addEventListener('click', () => {
+      whatsappModal.classList.add('hidden');
+    });
   }
 
   function changeMonth(delta) {
@@ -347,15 +407,27 @@ document.addEventListener('DOMContentLoaded', () => {
     if (tab === 'hours') {
       hoursInputs.classList.add('active');
       expenseInputs.classList.remove('active');
+      paymentInputs.classList.remove('active');
       submitBtn.querySelector('span').textContent = 'Registar Horas';
       hoursCountInput.required = true;
       expenseAmountInput.required = false;
-    } else {
+      paymentAmountInput.required = false;
+    } else if (tab === 'expenses') {
       hoursInputs.classList.remove('active');
       expenseInputs.classList.add('active');
-      submitBtn.querySelector('span').textContent = 'Registar Gasto';
+      paymentInputs.classList.remove('active');
+      submitBtn.querySelector('span').textContent = 'Registar Diversos';
       hoursCountInput.required = false;
       expenseAmountInput.required = true;
+      paymentAmountInput.required = false;
+    } else {
+      hoursInputs.classList.remove('active');
+      expenseInputs.classList.remove('active');
+      paymentInputs.classList.add('active');
+      submitBtn.querySelector('span').textContent = 'Registar Pagamento';
+      hoursCountInput.required = false;
+      expenseAmountInput.required = false;
+      paymentAmountInput.required = true;
     }
   }
 
@@ -378,18 +450,32 @@ document.addEventListener('DOMContentLoaded', () => {
       
       // Clear specific input
       hoursCountInput.value = '';
-    } else {
+    } else if (activeTab === 'expenses') {
       const amount = parseFloat(expenseAmountInput.value);
       const desc = expenseDescInput.value.trim();
+      const expenseNatureRadio = document.querySelector('input[name="expense-nature"]:checked');
+      const expenseNature = expenseNatureRadio ? expenseNatureRadio.value : 'debit';
       
       if (isNaN(amount) || amount <= 0) return;
       newEntry.type = 'expenses';
       newEntry.amount = amount;
-      newEntry.description = desc || 'Gasto';
+      newEntry.description = desc || 'Diversos';
+      newEntry.expenseNature = expenseNature;
       
       // Clear specific inputs
       expenseAmountInput.value = '';
       expenseDescInput.value = '';
+    } else if (activeTab === 'payments') {
+      const amount = parseFloat(paymentAmountInput.value);
+      const desc = paymentDescInput.value.trim();
+      
+      if (isNaN(amount) || amount <= 0) return;
+      newEntry.type = 'payments';
+      newEntry.amount = amount;
+      newEntry.description = desc || 'Pagamento Recebido';
+      
+      paymentAmountInput.value = '';
+      paymentDescInput.value = '';
     }
     
     // Store in global array
@@ -447,51 +533,88 @@ document.addEventListener('DOMContentLoaded', () => {
   function handleWhatsAppExport() {
     const currentMonthEntries = getFilteredEntries();
     
-    let totalHours = 0;
-    let totalExpenses = 0;
+    // Calculate previous balance
+    const startOfCurrentMonth = new Date(currentYear, currentMonth, 1);
+    const previousEntries = entries.filter(entry => {
+      const entryDate = new Date(entry.date);
+      if (isNaN(entryDate.getTime())) return false;
+      return entryDate.getFullYear() < currentYear || (entryDate.getFullYear() === currentYear && entryDate.getMonth() < currentMonth);
+    });
     
-    currentMonthEntries.forEach(entry => {
-      if (entry.type === 'hours') {
-        totalHours += Number(entry.hours) || 0;
-      } else if (entry.type === 'expenses') {
-        totalExpenses += Number(entry.amount) || 0;
+    let prevHours = 0; let prevExpenses = 0; let prevPayments = 0;
+    previousEntries.forEach(entry => {
+      if (entry.type === 'hours') prevHours += Number(entry.hours) || 0;
+      else if (entry.type === 'expenses') {
+        if (entry.expenseNature === 'credit') prevExpenses -= Number(entry.amount) || 0;
+        else prevExpenses += Number(entry.amount) || 0;
       }
+      else if (entry.type === 'payments') prevPayments += Number(entry.amount) || 0;
+    });
+    const previousBalance = (prevHours * HOURLY_RATE) - prevExpenses - prevPayments;
+
+    let totalHours = 0; let totalExpenses = 0; let totalPayments = 0;
+    currentMonthEntries.forEach(entry => {
+      if (entry.type === 'hours') totalHours += Number(entry.hours) || 0;
+      else if (entry.type === 'expenses') {
+        if (entry.expenseNature === 'credit') totalExpenses -= Number(entry.amount) || 0;
+        else totalExpenses += Number(entry.amount) || 0;
+      } else if (entry.type === 'payments') totalPayments += Number(entry.amount) || 0;
     });
     
     const grossEarnings = totalHours * HOURLY_RATE;
-    const netAmount = grossEarnings - totalExpenses;
+    const netAmount = previousBalance + grossEarnings - totalExpenses - totalPayments;
     
-    // Sort entries chronologically (oldest first) for clean listing in the message
     const chronologicalEntries = [...currentMonthEntries].sort((a, b) => a.date.localeCompare(b.date));
-    
     const monthYearStr = `${MONTH_NAMES[currentMonth]}/${currentYear}`;
     
-    // Build WhatsApp text template
-    let text = `*RELATÓRIO DE HORAS E GASTOS - ${monthYearStr}*\n`;
+    let text = `*CONTA-CORRENTE - ${monthYearStr}*\n`;
     text += `----------------------------------\n`;
-    text += `• Total de Horas: ${totalHours} horas (${formatCurrency(grossEarnings)})\n`;
-    text += `• Total de Gastos: -${formatCurrency(totalExpenses)}\n`;
-    text += `----------------------------------\n`;
-    text += `*VALOR ESTRUTURADO A RECEBER: ${formatCurrency(netAmount)}*\n`;
     
-    // Include detailed breakdown since it is viable and highly professional
-    if (chronologicalEntries.length > 0) {
-      text += `\n*Detalhamento dos registos:*\n`;
-      chronologicalEntries.forEach(entry => {
-        const dateShort = formatDateShort(entry.date);
-        if (entry.type === 'hours') {
-          text += `• ${dateShort}: +${entry.hours}h (Horas Trabalhadas)\n`;
-        } else {
-          text += `• ${dateShort}: -${formatCurrency(entry.amount)} (${entry.description || 'Gasto'})\n`;
-        }
-      });
+    // Cabeçalho: Saldo Transitado
+    if (previousBalance !== 0) {
+      text += `*Saldo Transitado: ${formatCurrency(previousBalance)}*\n`;
+      text += `----------------------------------\n`;
     }
     
-    // URI encode the message text
-    const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    // Corpo: Movimentos linha a linha
+    if (chronologicalEntries.length > 0) {
+      chronologicalEntries.forEach(entry => {
+        const dateShort = formatDateShort(entry.date);
+        
+        if (entry.type === 'hours') {
+          const value = Number(entry.hours) * HOURLY_RATE;
+          const hoursFormat = formatHours(entry.hours).replace(' ', ''); // Ex: 8h
+          text += `• ${dateShort} | +${formatCurrency(value)} | Trabalho (${hoursFormat})\n`;
+          
+        } else if (entry.type === 'expenses') {
+          if (entry.expenseNature === 'credit') {
+            text += `• ${dateShort} | +${formatCurrency(entry.amount)} | ${entry.description || 'Reembolso'}\n`;
+          } else {
+            text += `• ${dateShort} | -${formatCurrency(entry.amount)} | ${entry.description || 'Diversos'}\n`;
+          }
+          
+        } else if (entry.type === 'payments') {
+          text += `• ${dateShort} | -${formatCurrency(entry.amount)} | Pagamento: ${entry.description || 'Recebido'}\n`;
+        }
+      });
+      text += `----------------------------------\n`;
+    } else {
+      text += `(Sem movimentos registados este mês)\n`;
+      text += `----------------------------------\n`;
+    }
     
-    // Open in a new tab
-    window.open(whatsappUrl, '_blank');
+    // Rodapé: Total a Receber
+    text += `*TOTAL A RECEBER: ${formatCurrency(netAmount)}*`;
+    
+    whatsappPreviewText.value = text;
+    whatsappModal.classList.remove('hidden');
+    
+    confirmWhatsappBtn.onclick = () => {
+      const finalMessage = whatsappPreviewText.value;
+      const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(finalMessage)}`;
+      window.open(whatsappUrl, '_blank');
+      whatsappModal.classList.add('hidden');
+    };
   }
 
   // Run the app!
