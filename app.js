@@ -576,7 +576,13 @@ document.addEventListener('DOMContentLoaded', () => {
       text += `Saldo anterior   ${formatCurrency(previousBalance)}\n\n`;
     }
     
-    // ── Movimentos: bloco por registo ──
+    // Helper: trunca a descrição para garantir que cabe numa linha
+    const truncate = (str, max = 18) => str.length > max ? str.slice(0, max - 1) + '…' : str;
+
+    // Helper: formata valor compacto sem espaço antes do €
+    const compactCurrency = (val) => formatCurrency(val).replace(/\s/g, '');
+
+    // ── Movimentos: Data  Valor  Descrição (uma linha) ──
     if (chronologicalEntries.length > 0) {
       chronologicalEntries.forEach(entry => {
         const dateShort = formatDateShort(entry.date);
@@ -584,25 +590,23 @@ document.addEventListener('DOMContentLoaded', () => {
         if (entry.type === 'hours') {
           const value = Number(entry.hours) * HOURLY_RATE;
           const hoursLabel = formatHours(entry.hours).replace(' ', '');
-          text += `${dateShort}    +${formatCurrency(value)}\n`;
-          text += `Trabalho (${hoursLabel})\n\n`;
+          const desc = truncate(`Trabalho (${hoursLabel})`);
+          text += `${dateShort}  +${compactCurrency(value)}  ${desc}\n`;
           
         } else if (entry.type === 'expenses') {
-          const desc = entry.description || 'Diversos';
+          const desc = truncate(entry.description || 'Diversos');
           if (entry.expenseNature === 'credit') {
-            text += `${dateShort}    +${formatCurrency(entry.amount)}\n`;
-            text += `${desc}\n\n`;
+            text += `${dateShort}  +${compactCurrency(entry.amount)}  ${desc}\n`;
           } else {
-            text += `${dateShort}    -${formatCurrency(entry.amount)}\n`;
-            text += `${desc}\n\n`;
+            text += `${dateShort}  -${compactCurrency(entry.amount)}  ${desc}\n`;
           }
           
         } else if (entry.type === 'payments') {
-          const desc = entry.description || 'Recebido';
-          text += `${dateShort}    -${formatCurrency(entry.amount)}\n`;
-          text += `Pagamento (${desc})\n\n`;
+          const desc = truncate(entry.description || 'Recebido');
+          text += `${dateShort}  -${compactCurrency(entry.amount)}  Pagam. ${desc}\n`;
         }
       });
+      text += '\n';
     } else {
       text += `Sem movimentos registados este mês\n\n`;
     }
