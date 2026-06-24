@@ -68,6 +68,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const whatsappPreviewText = document.getElementById('whatsapp-preview-text');
   const closeModalBtn = document.getElementById('close-modal-btn');
   const confirmWhatsappBtn = document.getElementById('confirm-whatsapp-btn');
+  const exportDataBtn = document.getElementById('export-data-btn');
+  const importDataBtn = document.getElementById('import-data-btn');
 
   // ==========================================================================
   // INITIALIZATION
@@ -605,7 +607,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Rodapé: Total a Receber
     text += `*TOTAL A RECEBER: ${formatCurrency(netAmount)}*`;
-    
+    // Show Modal Preview
     whatsappPreviewText.value = text;
     whatsappModal.classList.remove('hidden');
     
@@ -616,6 +618,60 @@ document.addEventListener('DOMContentLoaded', () => {
       whatsappModal.classList.add('hidden');
     };
   }
+
+  // ==========================================================================
+  // EXPORT / IMPORT DATA FUNCTIONALITY
+  // ==========================================================================
+  exportDataBtn.addEventListener('click', () => {
+    const rawData = localStorage.getItem('hourflow_entries');
+    if (!rawData || rawData === '[]') {
+      alert('Não tens dados para exportar!');
+      return;
+    }
+    
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(rawData).then(() => {
+        alert('Dados copiados com sucesso! Agora abre o link da nova App instalada e clica em "Importar".');
+      }).catch(err => {
+        prompt('Ocorreu um erro a copiar automaticamente. Por favor, copia manualmente o texto abaixo:', rawData);
+      });
+    } else {
+      prompt('Copia manualmente o texto abaixo:', rawData);
+    }
+  });
+
+  importDataBtn.addEventListener('click', () => {
+    const rawData = prompt('Cola aqui o texto que exportaste da aplicação antiga:');
+    if (rawData) {
+      try {
+        const parsed = JSON.parse(rawData);
+        if (Array.isArray(parsed)) {
+          // Merge arrays uniquely by ID or just overwrite. Overwriting is safer for a full migration.
+          if (confirm('Atenção: Isto vai substituir todos os dados atuais pela cópia antiga. Queres continuar?')) {
+            localStorage.setItem('hourflow_entries', JSON.stringify(parsed));
+            entries = parsed;
+            
+            // Go to the month of the last entry if it exists
+            if (entries.length > 0) {
+              const lastDate = new Date(entries[entries.length - 1].date);
+              if (!isNaN(lastDate.getTime())) {
+                currentYear = lastDate.getFullYear();
+                currentMonth = lastDate.getMonth();
+                setupMonthSelector();
+              }
+            }
+            
+            render();
+            alert('Dados importados com sucesso! Bem-vindo(a) à nova versão.');
+          }
+        } else {
+          alert('Formato de dados inválido.');
+        }
+      } catch (e) {
+        alert('Erro ao processar os dados. Certifica-te que colaste o texto completo.');
+      }
+    }
+  });
 
   // Run the app!
   init();
