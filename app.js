@@ -591,19 +591,19 @@ document.addEventListener('DOMContentLoaded', () => {
           const value = Number(entry.hours) * HOURLY_RATE;
           const hoursLabel = formatHours(entry.hours).replace(' ', '');
           const desc = truncate(`Trabalho (${hoursLabel})`);
-          text += `${dateShort}  +${compactCurrency(value)}  ${desc}\n`;
+          text += `${dateShort} +${compactCurrency(value)} ${desc}\n`;
           
         } else if (entry.type === 'expenses') {
           const desc = truncate(entry.description || 'Diversos');
           if (entry.expenseNature === 'credit') {
-            text += `${dateShort}  +${compactCurrency(entry.amount)}  ${desc}\n`;
+            text += `${dateShort} +${compactCurrency(entry.amount)} ${desc}\n`;
           } else {
-            text += `${dateShort}  -${compactCurrency(entry.amount)}  ${desc}\n`;
+            text += `${dateShort} -${compactCurrency(entry.amount)} ${desc}\n`;
           }
           
         } else if (entry.type === 'payments') {
           const desc = truncate(entry.description || 'Recebido');
-          text += `${dateShort}  -${compactCurrency(entry.amount)}  Pagam. ${desc}\n`;
+          text += `${dateShort} -${compactCurrency(entry.amount)} Pagam. ${desc}\n`;
         }
       });
       text += '\n';
