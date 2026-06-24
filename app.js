@@ -534,7 +534,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentMonthEntries = getFilteredEntries();
     
     // Calculate previous balance
-    const startOfCurrentMonth = new Date(currentYear, currentMonth, 1);
     const previousEntries = entries.filter(entry => {
       const entryDate = new Date(entry.date);
       if (isNaN(entryDate.getTime())) return false;
@@ -565,47 +564,49 @@ document.addEventListener('DOMContentLoaded', () => {
     const netAmount = previousBalance + grossEarnings - totalExpenses - totalPayments;
     
     const chronologicalEntries = [...currentMonthEntries].sort((a, b) => a.date.localeCompare(b.date));
-    const monthYearStr = `${MONTH_NAMES[currentMonth]}/${currentYear}`;
     
-    let text = `*CONTA-CORRENTE - ${monthYearStr}*\n`;
-    text += `----------------------------------\n`;
+    // Uppercase month name for the header (ex: JUNHO 2026)
+    const monthUpper = MONTH_NAMES[currentMonth].toUpperCase();
     
-    // Cabeçalho: Saldo Transitado
+    // ── Cabeçalho minimalista ──
+    let text = `EXTRATO  |  ${monthUpper} ${currentYear}\n\n`;
+    
+    // Saldo transitado (se existir)
     if (previousBalance !== 0) {
-      text += `*Saldo Transitado: ${formatCurrency(previousBalance)}*\n`;
-      text += `----------------------------------\n`;
+      text += `Saldo anterior   ${formatCurrency(previousBalance)}\n\n`;
     }
     
-    // Corpo: Movimentos linha a linha
+    // ── Movimentos: data   valor   descritivo ──
     if (chronologicalEntries.length > 0) {
       chronologicalEntries.forEach(entry => {
         const dateShort = formatDateShort(entry.date);
         
         if (entry.type === 'hours') {
           const value = Number(entry.hours) * HOURLY_RATE;
-          const hoursFormat = formatHours(entry.hours).replace(' ', ''); // Ex: 8h
-          text += `• ${dateShort} | +${formatCurrency(value)} | Trabalho (${hoursFormat})\n`;
+          const hoursLabel = formatHours(entry.hours).replace(' ', '');
+          text += `${dateShort}   +${formatCurrency(value)}   Trabalho (${hoursLabel})\n`;
           
         } else if (entry.type === 'expenses') {
+          const desc = entry.description || 'Diversos';
           if (entry.expenseNature === 'credit') {
-            text += `• ${dateShort} | +${formatCurrency(entry.amount)} | ${entry.description || 'Reembolso'}\n`;
+            text += `${dateShort}   +${formatCurrency(entry.amount)}   ${desc}\n`;
           } else {
-            text += `• ${dateShort} | -${formatCurrency(entry.amount)} | ${entry.description || 'Diversos'}\n`;
+            text += `${dateShort}   -${formatCurrency(entry.amount)}   ${desc}\n`;
           }
           
         } else if (entry.type === 'payments') {
-          text += `• ${dateShort} | -${formatCurrency(entry.amount)} | Pagamento: ${entry.description || 'Recebido'}\n`;
+          const desc = entry.description || 'Recebido';
+          text += `${dateShort}   -${formatCurrency(entry.amount)}   Pagamento (${desc})\n`;
         }
       });
-      text += `----------------------------------\n`;
     } else {
-      text += `(Sem movimentos registados este mês)\n`;
-      text += `----------------------------------\n`;
+      text += `Sem movimentos registados este mês\n`;
     }
     
-    // Rodapé: Total a Receber
-    text += `*TOTAL A RECEBER: ${formatCurrency(netAmount)}*`;
-    // Show Modal Preview
+    // ── Rodapé ──
+    text += `\n*TOTAL A RECEBER:  ${formatCurrency(netAmount)}*`;
+    
+    // Mostrar no Modal
     whatsappPreviewText.value = text;
     whatsappModal.classList.remove('hidden');
     
