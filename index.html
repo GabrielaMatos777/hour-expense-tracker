@@ -6,6 +6,14 @@
   <meta name="description" content="Registo mensal de horas de trabalho e despesas dedutíveis. Exportação rápida para WhatsApp.">
   <meta name="theme-color" content="#0b0f19">
   <title>Registo de Horas & Diversos</title>
+  
+  <!-- PWA Manifest & Meta Tags -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="HourFlow">
+  <link rel="apple-touch-icon" href="icon.svg">
   <!-- Google Fonts (Inter) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -227,5 +235,16 @@
 
   <!-- JavaScript -->
   <script src="app.js?v=2"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').then(reg => {
+          console.log('Service Worker registado com sucesso.');
+        }).catch(err => {
+          console.log('Falha ao registar o Service Worker.', err);
+        });
+      });
+    }
+  </script>
 </body>
 </html>
