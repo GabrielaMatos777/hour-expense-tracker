@@ -1,41 +1,11 @@
-const CACHE_NAME = 'hourflow-v3';
-const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/style.css?v=3',
-  '/app.js?v=3',
-  '/manifest.json',
-  '/icon.svg'
-];
-
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    })
-  );
-  self.skipWaiting();
-});
+// This Service Worker actively unregisters itself and clears all caches.
+// It was added to undo the previous SW that was caching aggressively.
+self.addEventListener('install', () => self.skipWaiting());
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    })
-  );
-  self.clients.claim();
-});
-
-self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
-    })
+      return Promise.all(cacheNames.map((name) => caches.delete(name)));
+    }).then(() => self.registration.unregister())
   );
 });
