@@ -62,6 +62,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const historyList = document.getElementById('history-list');
   const emptyState = document.getElementById('empty-state');
   const whatsappBtn = document.getElementById('whatsapp-btn');
+  const pdfBtn = document.getElementById('pdf-btn');
+  const calendarGrid = document.getElementById('calendar-grid');
+  const selectedDateLabel = document.getElementById('selected-date-label');
   
   // Modal Elements
   const whatsappModal = document.getElementById('whatsapp-modal');
@@ -77,17 +80,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // ==========================================================================
   function init() {
     setupMonthSelector();
-    updateDateInputDefault();
     render();
     setupEventListeners();
-  }
-
-  // Pre-fill date picker to today's date formatted as YYYY-MM-DD
-  function updateDateInputDefault() {
+    // Select today by default
     const yyyy = today.getFullYear();
     const mm = String(today.getMonth() + 1).padStart(2, '0');
     const dd = String(today.getDate()).padStart(2, '0');
-    entryDateInput.value = `${yyyy}-${mm}-${dd}`;
+    selectCalendarDay(`${yyyy}-${mm}-${dd}`);
   }
 
   // Populate hidden month selector select list for quick access
@@ -325,6 +324,94 @@ document.addEventListener('DOMContentLoaded', () => {
         historyList.appendChild(li);
       });
     }
+    
+    // Render calendar after updating the history list
+    renderCalendar();
+  }
+
+  // ==========================================================================
+  // CALENDAR
+  // ==========================================================================
+  function renderCalendar() {
+    calendarGrid.innerHTML = '';
+    
+    // Build a set of entry types per day for the current month
+    const dayMap = {}; // key: day number → Set of types
+    getFilteredEntries().forEach(entry => {
+      const day = parseInt(entry.date.split('-')[2], 10);
+      if (!dayMap[day]) dayMap[day] = new Set();
+      if (entry.type === 'hours') dayMap[day].add('hours');
+      else if (entry.type === 'expenses') dayMap[day].add(entry.expenseNature === 'credit' ? 'credit' : 'expense');
+      else if (entry.type === 'payments') dayMap[day].add('payment');
+    });
+    
+    const firstDay = new Date(currentYear, currentMonth, 1);
+    // getDay(): 0=Sun,1=Mon...6=Sat. We want Mon=0, so:
+    const startOffset = (firstDay.getDay() + 6) % 7;
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+    
+    // Empty cells before the 1st
+    for (let i = 0; i < startOffset; i++) {
+      const empty = document.createElement('div');
+      empty.className = 'cal-day empty';
+      calendarGrid.appendChild(empty);
+    }
+    
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'cal-day';
+      if (dateStr === todayStr) btn.classList.add('today');
+      if (dateStr === entryDateInput.value) btn.classList.add('selected');
+      
+      const numEl = document.createElement('span');
+      numEl.textContent = d;
+      btn.appendChild(numEl);
+      
+      if (dayMap[d]) {
+        const dotsEl = document.createElement('div');
+        dotsEl.className = 'cal-dots';
+        if (dayMap[d].has('hours')) {
+          const dot = document.createElement('span');
+          dot.className = 'cal-dot cal-dot--hours';
+          dotsEl.appendChild(dot);
+        }
+        if (dayMap[d].has('expense')) {
+          const dot = document.createElement('span');
+          dot.className = 'cal-dot cal-dot--expense';
+          dotsEl.appendChild(dot);
+        }
+        if (dayMap[d].has('credit')) {
+          const dot = document.createElement('span');
+          dot.className = 'cal-dot cal-dot--hours';
+          dotsEl.appendChild(dot);
+        }
+        if (dayMap[d].has('payment')) {
+          const dot = document.createElement('span');
+          dot.className = 'cal-dot cal-dot--payment';
+          dotsEl.appendChild(dot);
+        }
+        btn.appendChild(dotsEl);
+      }
+      
+      btn.addEventListener('click', () => selectCalendarDay(dateStr));
+      calendarGrid.appendChild(btn);
+    }
+  }
+  
+  function selectCalendarDay(dateStr) {
+    entryDateInput.value = dateStr;
+    // Update selected-date label
+    const parts = dateStr.split('-');
+    selectedDateLabel.textContent = `${parts[2]}/${parts[1]}/${parts[0]}`;
+    // Update selected class in calendar
+    calendarGrid.querySelectorAll('.cal-day').forEach(btn => btn.classList.remove('selected'));
+    const dayNum = parseInt(parts[2], 10);
+    const allDays = calendarGrid.querySelectorAll('.cal-day:not(.empty)');
+    // The day number btn is at index dayNum - 1 relative to non-empty days
+    if (allDays[dayNum - 1]) allDays[dayNum - 1].classList.add('selected');
   }
 
   // Escape HTML helper to prevent XSS injection
@@ -370,6 +457,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // WhatsApp Report Button
     whatsappBtn.addEventListener('click', handleWhatsAppExport);
+    
+    // PDF Export Button
+    pdfBtn.addEventListener('click', handlePDFExport);
     
     // Modal Close
     closeModalBtn.addEventListener('click', () => {
@@ -671,6 +761,128 @@ document.addEventListener('DOMContentLoaded', () => {
         navigator.clipboard.writeText(content).then(() => alert('Texto copiado! Cola onde quiseres.'));
       }
     };
+  }
+
+  // ==========================================================================
+  // PDF EXPORT
+  // ==========================================================================
+  function handlePDFExport() {
+    const currentMonthEntries = getFilteredEntries();
+    
+    const previousEntries = entries.filter(entry => {
+      const d = new Date(entry.date);
+      if (isNaN(d.getTime())) return false;
+      return d.getFullYear() < currentYear || (d.getFullYear() === currentYear && d.getMonth() < currentMonth);
+    });
+    
+    let prevH = 0, prevE = 0, prevP = 0;
+    previousEntries.forEach(e => {
+      if (e.type === 'hours') prevH += Number(e.hours) || 0;
+      else if (e.type === 'expenses') { if (e.expenseNature === 'credit') prevE -= Number(e.amount) || 0; else prevE += Number(e.amount) || 0; }
+      else if (e.type === 'payments') prevP += Number(e.amount) || 0;
+    });
+    const previousBalance = (prevH * HOURLY_RATE) - prevE - prevP;
+    
+    let totH = 0, totE = 0, totP = 0;
+    currentMonthEntries.forEach(e => {
+      if (e.type === 'hours') totH += Number(e.hours) || 0;
+      else if (e.type === 'expenses') { if (e.expenseNature === 'credit') totE -= Number(e.amount) || 0; else totE += Number(e.amount) || 0; }
+      else if (e.type === 'payments') totP += Number(e.amount) || 0;
+    });
+    const netAmount = previousBalance + (totH * HOURLY_RATE) - totE - totP;
+    const sorted = [...currentMonthEntries].sort((a, b) => a.date.localeCompare(b.date));
+    
+    // Build table rows
+    let rows = '';
+    sorted.forEach(entry => {
+      const d = formatDateShort(entry.date);
+      let val = '', desc = '', cls = '';
+      if (entry.type === 'hours') {
+        val = `+${formatCurrency(Number(entry.hours) * HOURLY_RATE)}`;
+        desc = `Trabalho (${formatHours(entry.hours)})`;
+        cls = 'positive';
+      } else if (entry.type === 'expenses') {
+        if (entry.expenseNature === 'credit') {
+          val = `+${formatCurrency(entry.amount)}`;
+          desc = entry.description || 'Reembolso';
+          cls = 'positive';
+        } else {
+          val = `-${formatCurrency(entry.amount)}`;
+          desc = entry.description || 'Diversos';
+          cls = 'negative';
+        }
+      } else if (entry.type === 'payments') {
+        val = `-${formatCurrency(entry.amount)}`;
+        desc = `Pagamento — ${entry.description || 'Recebido'}`;
+        cls = 'negative';
+      }
+      rows += `<tr><td class="col-date">${d}</td><td class="col-val ${cls}">${val}</td><td class="col-desc">${escapeHTML(desc)}</td></tr>`;
+    });
+    
+    const prevBalanceRow = previousBalance !== 0
+      ? `<tr class="balance-row"><td colspan="3"><strong>Saldo anterior:&nbsp;&nbsp;${formatCurrency(previousBalance)}</strong></td></tr>`
+      : '';
+    
+    const html = `<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8">
+<title>Extrato ${MONTH_NAMES[currentMonth]} ${currentYear}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; font-size: 13px; color: #1a1a2e; background: #fff; padding: 32px 28px; max-width: 600px; margin: 0 auto; }
+  .header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 28px; padding-bottom: 16px; border-bottom: 2px solid #1a1a2e; }
+  .header h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+  .header .period { font-size: 11px; color: #555; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+  th { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #888; padding: 6px 8px; border-bottom: 1px solid #e5e5e5; text-align: left; }
+  td { padding: 10px 8px; border-bottom: 1px solid #f0f0f0; vertical-align: top; line-height: 1.4; }
+  .col-date { white-space: nowrap; width: 58px; color: #555; font-size: 12px; }
+  .col-val { white-space: nowrap; width: 100px; font-weight: 600; font-size: 13px; }
+  .col-desc { color: #333; }
+  .positive { color: #16a34a; }
+  .negative { color: #dc2626; }
+  .balance-row td { background: #f8f8f8; font-size: 12px; color: #444; padding: 8px 8px; }
+  .footer { border-top: 2px solid #1a1a2e; padding-top: 14px; display: flex; justify-content: space-between; align-items: center; }
+  .footer .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #888; }
+  .footer .total { font-size: 20px; font-weight: 700; }
+  .no-print { text-align: center; margin-top: 28px; }
+  .no-print button { background: #1a1a2e; color: #fff; border: none; padding: 12px 32px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  @media print { .no-print { display: none; } body { padding: 16px; } }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="period">Extrato Mensal</div>
+      <h1>${MONTH_NAMES[currentMonth]} ${currentYear}</h1>
+    </div>
+    <div class="period">HourFlow</div>
+  </div>
+  <table>
+    <thead><tr><th>Data</th><th>Valor</th><th>Descrição</th></tr></thead>
+    <tbody>
+      ${prevBalanceRow}
+      ${rows || '<tr><td colspan="3" style="color:#aaa;text-align:center;padding:20px">Sem movimentos registados</td></tr>'}
+    </tbody>
+  </table>
+  <div class="footer">
+    <span class="label">Total a Receber</span>
+    <span class="total">${formatCurrency(netAmount)}</span>
+  </div>
+  <div class="no-print">
+    <button onclick="window.print()">Guardar como PDF / Imprimir</button>
+  </div>
+</body>
+</html>`;
+    
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url, '_blank');
+    if (win) {
+      win.onload = () => { URL.revokeObjectURL(url); };
+    }
   }
 
   // Run the app!
