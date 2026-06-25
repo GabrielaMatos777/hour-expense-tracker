@@ -764,17 +764,28 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================================================
-  // PDF EXPORT
+  // PDF EXPORT — Web Share API (sem guardar no dispositivo)
   // ==========================================================================
-  function handlePDFExport() {
+  async function handlePDFExport() {
+    // Feedback visual imediato no botão
+    const originalHTML = pdfBtn.innerHTML;
+    pdfBtn.disabled = true;
+    pdfBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg><span>A gerar…</span>`;
+
+    const restoreBtn = () => {
+      pdfBtn.disabled = false;
+      pdfBtn.innerHTML = originalHTML;
+    };
+
+    // ── Calcular totais (idêntico ao anterior) ──────────────────────────────
     const currentMonthEntries = getFilteredEntries();
-    
+
     const previousEntries = entries.filter(entry => {
       const d = new Date(entry.date);
       if (isNaN(d.getTime())) return false;
       return d.getFullYear() < currentYear || (d.getFullYear() === currentYear && d.getMonth() < currentMonth);
     });
-    
+
     let prevH = 0, prevE = 0, prevP = 0;
     previousEntries.forEach(e => {
       if (e.type === 'hours') prevH += Number(e.hours) || 0;
@@ -782,7 +793,7 @@ document.addEventListener('DOMContentLoaded', () => {
       else if (e.type === 'payments') prevP += Number(e.amount) || 0;
     });
     const previousBalance = (prevH * HOURLY_RATE) - prevE - prevP;
-    
+
     let totH = 0, totE = 0, totP = 0;
     currentMonthEntries.forEach(e => {
       if (e.type === 'hours') totH += Number(e.hours) || 0;
@@ -791,97 +802,193 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     const netAmount = previousBalance + (totH * HOURLY_RATE) - totE - totP;
     const sorted = [...currentMonthEntries].sort((a, b) => a.date.localeCompare(b.date));
-    
-    // Build table rows
-    let rows = '';
-    sorted.forEach(entry => {
-      const d = formatDateShort(entry.date);
-      let val = '', desc = '', cls = '';
-      if (entry.type === 'hours') {
-        val = `+${formatCurrency(Number(entry.hours) * HOURLY_RATE)}`;
-        desc = `Trabalho (${formatHours(entry.hours)})`;
-        cls = 'positive';
-      } else if (entry.type === 'expenses') {
-        if (entry.expenseNature === 'credit') {
-          val = `+${formatCurrency(entry.amount)}`;
-          desc = entry.description || 'Reembolso';
-          cls = 'positive';
-        } else {
-          val = `-${formatCurrency(entry.amount)}`;
-          desc = entry.description || 'Diversos';
-          cls = 'negative';
-        }
-      } else if (entry.type === 'payments') {
-        val = `-${formatCurrency(entry.amount)}`;
-        desc = `Pagamento — ${entry.description || 'Recebido'}`;
-        cls = 'negative';
+
+    // ── Gerar PDF em memória com jsPDF ──────────────────────────────────────
+    try {
+      // Carregar jsPDF dinamicamente (apenas quando necessário)
+      if (!window.jspdf) {
+        await new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+          s.onload = resolve;
+          s.onerror = reject;
+          document.head.appendChild(s);
+        });
       }
-      rows += `<tr><td class="col-date">${d}</td><td class="col-val ${cls}">${val}</td><td class="col-desc">${escapeHTML(desc)}</td></tr>`;
-    });
-    
-    const prevBalanceRow = previousBalance !== 0
-      ? `<tr class="balance-row"><td colspan="3"><strong>Saldo anterior:&nbsp;&nbsp;${formatCurrency(previousBalance)}</strong></td></tr>`
-      : '';
-    
-    const html = `<!DOCTYPE html>
-<html lang="pt-PT">
-<head>
-<meta charset="UTF-8">
-<title>Extrato ${MONTH_NAMES[currentMonth]} ${currentYear}</title>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Inter', sans-serif; font-size: 13px; color: #1a1a2e; background: #fff; padding: 32px 28px; max-width: 600px; margin: 0 auto; }
-  .header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 28px; padding-bottom: 16px; border-bottom: 2px solid #1a1a2e; }
-  .header h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
-  .header .period { font-size: 11px; color: #555; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; }
-  table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
-  th { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #888; padding: 6px 8px; border-bottom: 1px solid #e5e5e5; text-align: left; }
-  td { padding: 10px 8px; border-bottom: 1px solid #f0f0f0; vertical-align: top; line-height: 1.4; }
-  .col-date { white-space: nowrap; width: 58px; color: #555; font-size: 12px; }
-  .col-val { white-space: nowrap; width: 100px; font-weight: 600; font-size: 13px; }
-  .col-desc { color: #333; }
-  .positive { color: #16a34a; }
-  .negative { color: #dc2626; }
-  .balance-row td { background: #f8f8f8; font-size: 12px; color: #444; padding: 8px 8px; }
-  .footer { border-top: 2px solid #1a1a2e; padding-top: 14px; display: flex; justify-content: space-between; align-items: center; }
-  .footer .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #888; }
-  .footer .total { font-size: 20px; font-weight: 700; }
-  .no-print { text-align: center; margin-top: 28px; }
-  .no-print button { background: #1a1a2e; color: #fff; border: none; padding: 12px 32px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
-  @media print { .no-print { display: none; } body { padding: 16px; } }
-</style>
-</head>
-<body>
-  <div class="header">
-    <div>
-      <div class="period">Extrato Mensal</div>
-      <h1>${MONTH_NAMES[currentMonth]} ${currentYear}</h1>
-    </div>
-    <div class="period">HourFlow</div>
-  </div>
-  <table>
-    <thead><tr><th>Data</th><th>Valor</th><th>Descrição</th></tr></thead>
-    <tbody>
-      ${prevBalanceRow}
-      ${rows || '<tr><td colspan="3" style="color:#aaa;text-align:center;padding:20px">Sem movimentos registados</td></tr>'}
-    </tbody>
-  </table>
-  <div class="footer">
-    <span class="label">Total a Receber</span>
-    <span class="total">${formatCurrency(netAmount)}</span>
-  </div>
-  <div class="no-print">
-    <button onclick="window.print()">Guardar como PDF / Imprimir</button>
-  </div>
-</body>
-</html>`;
-    
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const win = window.open(url, '_blank');
-    if (win) {
-      win.onload = () => { URL.revokeObjectURL(url); };
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+
+      // ── Cores e dimensões ──
+      const dark   = [26, 26, 46];   // #1a1a2e
+      const grey   = [136, 136, 136]; // #888
+      const green  = [22, 163, 74];   // #16a34a
+      const red    = [220, 38, 38];   // #dc2626
+      const lGrey  = [240, 240, 240]; // linha separadora
+      const W = 210, PL = 18, PR = 18, CW = W - PL - PR; // A4 largura útil
+
+      let y = 20;
+
+      // ── Cabeçalho ──
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(...grey);
+      doc.text('EXTRATO MENSAL', PL, y);
+      doc.text('HourFlow', W - PR, y, { align: 'right' });
+
+      y += 6;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(20);
+      doc.setTextColor(...dark);
+      doc.text(`${MONTH_NAMES[currentMonth]} ${currentYear}`, PL, y);
+
+      y += 4;
+      doc.setDrawColor(...dark);
+      doc.setLineWidth(0.6);
+      doc.line(PL, y, W - PR, y);
+      y += 8;
+
+      // ── Cabeçalho da tabela ──
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(...grey);
+      doc.text('DATA', PL, y);
+      doc.text('VALOR', PL + 28, y);
+      doc.text('DESCRIÇÃO', PL + 65, y);
+
+      y += 3;
+      doc.setDrawColor(...lGrey);
+      doc.setLineWidth(0.3);
+      doc.line(PL, y, W - PR, y);
+      y += 5;
+
+      // ── Saldo anterior ──
+      if (previousBalance !== 0) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(...dark);
+        doc.text('Saldo anterior', PL, y);
+        const balStr = formatCurrency(previousBalance);
+        doc.text(balStr, PL + 28, y);
+        y += 3;
+        doc.setDrawColor(...lGrey);
+        doc.setLineWidth(0.3);
+        doc.line(PL, y, W - PR, y);
+        y += 5;
+      }
+
+      // ── Linhas de movimentos ──
+      doc.setFont('helvetica', 'normal');
+      if (sorted.length === 0) {
+        doc.setFontSize(9);
+        doc.setTextColor(...grey);
+        doc.text('Sem movimentos registados este mês.', PL, y);
+        y += 8;
+      } else {
+        sorted.forEach(entry => {
+          const dateStr = formatDateShort(entry.date);
+          let valStr = '', descStr = '', color = dark;
+
+          if (entry.type === 'hours') {
+            valStr = `+${formatCurrency(Number(entry.hours) * HOURLY_RATE)}`;
+            descStr = `Trabalho (${formatHours(entry.hours)})`;
+            color = green;
+          } else if (entry.type === 'expenses') {
+            if (entry.expenseNature === 'credit') {
+              valStr = `+${formatCurrency(entry.amount)}`;
+              descStr = entry.description || 'Reembolso';
+              color = green;
+            } else {
+              valStr = `-${formatCurrency(entry.amount)}`;
+              descStr = entry.description || 'Diversos';
+              color = red;
+            }
+          } else if (entry.type === 'payments') {
+            valStr = `-${formatCurrency(entry.amount)}`;
+            descStr = `Pagamento — ${entry.description || 'Recebido'}`;
+            color = red;
+          }
+
+          doc.setFontSize(9);
+          doc.setTextColor(...grey);
+          doc.text(dateStr, PL, y);
+
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(...color);
+          doc.text(valStr, PL + 28, y);
+
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(...dark);
+          // Truncar descrição se muito longa
+          const maxDescW = CW - 65;
+          const truncated = doc.splitTextToSize(descStr, maxDescW)[0];
+          doc.text(truncated, PL + 65, y);
+
+          y += 4;
+          doc.setDrawColor(...lGrey);
+          doc.setLineWidth(0.2);
+          doc.line(PL, y, W - PR, y);
+          y += 4;
+
+          // Nova página se necessário
+          if (y > 268) {
+            doc.addPage();
+            y = 20;
+          }
+        });
+      }
+
+      // ── Rodapé com total ──
+      y += 4;
+      doc.setDrawColor(...dark);
+      doc.setLineWidth(0.6);
+      doc.line(PL, y, W - PR, y);
+      y += 7;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(...grey);
+      doc.text('TOTAL A RECEBER', PL, y);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.setTextColor(...dark);
+      doc.text(formatCurrency(netAmount), W - PR, y, { align: 'right' });
+
+      // ── Converter para Blob e partilhar ────────────────────────────────────
+      const pdfBlob = doc.output('blob'); // Blob com type 'application/pdf'
+      const filename = `extrato_${MONTH_NAMES[currentMonth].toLowerCase()}_${currentYear}.pdf`;
+      const pdfFile = new File([pdfBlob], filename, { type: 'application/pdf' });
+
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+        // Caminho principal: partilha nativa com o ficheiro PDF em anexo
+        await navigator.share({
+          files: [pdfFile],
+          title: `Extrato ${MONTH_NAMES[currentMonth]} ${currentYear}`
+        });
+      } else if (navigator.share) {
+        // Fallback: partilha sem ficheiro (texto)
+        await navigator.share({
+          title: `Extrato ${MONTH_NAMES[currentMonth]} ${currentYear}`,
+          text: `Extrato HourFlow — ${MONTH_NAMES[currentMonth]} ${currentYear}\nTotal a receber: ${formatCurrency(netAmount)}`
+        });
+      } else {
+        // Último recurso: download direto (desktop sem Share API)
+        const url = URL.createObjectURL(pdfBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        console.error('Erro ao gerar PDF:', err);
+        alert('Não foi possível gerar o PDF. Tenta novamente.');
+      }
+    } finally {
+      restoreBtn();
     }
   }
 

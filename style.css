@@ -1051,3 +1051,11 @@ html, body {
   margin-left: 6px;
 }
 .cal-legend .dot:first-child { margin-left: 0; }
+
+/* ==========================================================================
+   UTILITY: SPIN ANIMATION (usado no botão PDF enquanto gera)
+   ========================================================================== */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
